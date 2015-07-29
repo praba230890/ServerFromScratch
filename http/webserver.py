@@ -2,6 +2,7 @@
 # usage : python -m http.webserver 80
 # where 80 is the port number and is optional, if not given it will try to take the port number from settings file
 # by default the server will run on port 8888 if nothing is specified in settings file and parameter
+
 import socket
 import os
 import sys

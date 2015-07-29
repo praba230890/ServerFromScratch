@@ -1,3 +1,5 @@
+# http.settings
+
 HOST = ''
 PORT = 8888
 
