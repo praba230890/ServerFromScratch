@@ -1,48 +1,89 @@
+# http.webserver
+# usage : python -m http.webserver 80
+# where 80 is the port number and is optional, if not given it will try to take the port number from settings file
+# by default the server will run on port 8888 if nothing is specified in settings file and parameter
 import socket
-import datetime
 import os
+import sys
+import time
+from datetime import datetime
+import SimpleHTTPServer
 # from mercurial.dispatch import request
 
-from part1.request import method
+from .request import Request
+from .response import Response
 
-HOST, PORT = '', 8888
+_UNKNOWN = 'UNKNOWN'
 
-HTML_ROOT = "/home/naveen/workspace/WebServer/part1/public_html/"
+# connection states
+_CS_IDLE = 'Idle'
+_CS_REQ_STARTED = 'Request-started'
+_CS_REQ_SENT = 'Request-sent'
 
-def get_response_body(response_file):    
+# trying to fetch HTML_ROOT, host and port from settings file
+# if not found then default values will be set
+# HTML_ROOT = current directory + public_html, HOST = '', PORT = 8888 
+
+try:
+    from .settings import HTML_ROOT
+except:
+    HTML_ROOT = os.path.join(os.getcwd(), 'public_html')
+
+try:
+    from .settings import HOST
+except:
+    HOST = ''
+
+HTTPS_PORT = 443
+
+try:
     try:
-        with open(response_file, 'r') as response_file:
-            return "".join([line for line in response_file.readlines()]), "200 OK"
+        HTTP_PORT = int(sys.argv[1])
     except:
-        return "Invalid request", "404 Not Found"
+        try:
+            from .settings import PORT as HTTP_PORT
+        except:
+            pass
+except:
+    HTTP_PORT = 8888
 
-listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-listen_socket.bind((HOST, PORT))
-listen_socket.listen(1)
-print 'Serving HTTP on port %s ...' % PORT
-while True:
-    client_connection, client_address = listen_socket.accept()
-    request = client_connection.recv(1024)
+def main():
+    listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listen_socket.bind((HOST, HTTP_PORT))
+    listen_socket.listen(50)
+    print 'Serving HTTP on port %s ...' % HTTP_PORT
+    serve(listen_socket)
     
-    request = method(request.split('\n')[0])
-    print request, type(request), request.method, request.protocol, request.location
-
-    response_time = str(datetime.datetime.now())
-    
-    response_body, response_status = get_response_body(os.path.join(HTML_ROOT+request.location[1:]))
+def serve(listen_socket):
+    try:
+        while True:
+            client_connection, client_address = listen_socket.accept()
+            raw_request = client_connection.recv(1024)
+            raw_request_list = raw_request.split('\n')
             
-    http_response_header = """\
+            print "\n Raw request: " + raw_request
+            request = Request(raw_request_list[0])
+            print "\n Request: \n", request.method, request.protocol, request.location
+            
+            response = Response(request)
+#             print "Response: \n", response.http_response
+            
+            client_connection.sendall(response.http_response)
+            client_connection.close()
+    except KeyboardInterrupt:
+        print "Exit"
+    except:
+        client_connection.sendall("""\
 HTTP/1.1 %s 
 Date: %s
 Content-Type: text/html
 
-""" % (response_status, response_time)
-    http_response = http_response_header+"""
-        %s \n
-         This is %s method request""" % (response_body, request.method)
-        
-    print http_response
+500 Internal Server Error
+"""% ('500 Internal Server Error', datetime.now()))
+        client_connection.close()
+        time.sleep(2)
+        serve(listen_socket)
     
-    client_connection.sendall(http_response)
-    client_connection.close()
+if __name__ == "__main__":
+    main()
