@@ -20,7 +20,7 @@ second line""")
         
     def test_with_invalid_file(self):
         response = requests.get('http://127.0.0.1:8888/indml')
-        self.assertEqual(response.text, "Invalid request")
+        self.assertEqual(response.text, "404 Not Found")
 
 if __name__ == "__main__":
     unittest.main()
